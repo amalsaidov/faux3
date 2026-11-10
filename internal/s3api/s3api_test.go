@@ -172,6 +172,7 @@ func TestObjectRoundTrip(t *testing.T) {
 	}
 	// Regression: user metadata header names go out lowercase, as S3 sends
 	// them; the AWS CLI otherwise reports the key as "Color".
+	//lint:ignore SA1008 the test asserts the raw lowercase key the server writes
 	if got := rec.Header()["x-amz-meta-color"]; len(got) != 1 || got[0] != "blue" {
 		t.Errorf("x-amz-meta-color = %q, header map %v", got, rec.Header())
 	}
