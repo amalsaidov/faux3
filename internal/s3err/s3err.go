@@ -39,6 +39,7 @@ var statusByCode = map[string]int{
 	"BucketAlreadyOwnedByYou":           http.StatusConflict,
 	"InvalidBucketName":                 http.StatusBadRequest,
 	"InvalidLocationConstraint":         http.StatusBadRequest,
+	"MalformedXML":                      http.StatusBadRequest,
 	"SignatureDoesNotMatch":             http.StatusForbidden,
 	"InvalidAccessKeyId":                http.StatusForbidden,
 	"AccessDenied":                      http.StatusForbidden,
