@@ -129,7 +129,10 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request, req *request)
 	setIf(h, "Content-Language", meta.ContentLanguage)
 	setIf(h, "Expires", meta.Expires)
 	for k, v := range meta.UserMetadata {
-		h.Set("X-Amz-Meta-"+k, v)
+		// Write the lowercase name S3 uses: botocore keeps the header's
+		// case for the metadata key, so a canonical "X-Amz-Meta-Color"
+		// would surface as "Color" in the AWS CLI.
+		h["x-amz-meta-"+k] = []string{v}
 	}
 	for q, hdr := range responseOverrides {
 		if req.query.Has(q) {

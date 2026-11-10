@@ -163,12 +163,20 @@ func TestObjectRoundTrip(t *testing.T) {
 		t.Fatal("body mismatch")
 	}
 	want := map[string]string{"Content-Type": "application/x-test", "Cache-Control": "no-cache",
-		"Content-Disposition": "attachment", "Content-Language": "en", "X-Amz-Meta-Color": "blue",
+		"Content-Disposition": "attachment", "Content-Language": "en",
 		"ETag": etag, "Accept-Ranges": "bytes", "Content-Length": "256"}
 	for k, v := range want {
 		if got := rec.Header().Get(k); got != v {
 			t.Errorf("%s = %q want %q", k, got, v)
 		}
+	}
+	// Regression: user metadata header names go out lowercase, as S3 sends
+	// them; the AWS CLI otherwise reports the key as "Color".
+	if got := rec.Header()["x-amz-meta-color"]; len(got) != 1 || got[0] != "blue" {
+		t.Errorf("x-amz-meta-color = %q, header map %v", got, rec.Header())
+	}
+	if _, ok := rec.Header()["X-Amz-Meta-Color"]; ok {
+		t.Error("user metadata sent with a canonicalized header name")
 	}
 	if _, err := http.ParseTime(rec.Header().Get("Last-Modified")); err != nil {
 		t.Errorf("Last-Modified: %v", err)
