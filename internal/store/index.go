@@ -54,3 +54,8 @@ func (ix *index) len() int {
 	defer ix.mu.RUnlock()
 	return len(ix.keys)
 }
+
+// metaLocked returns the stored meta for key. The caller must hold ix.mu;
+// get must not be used then, since a recursive RLock can deadlock behind a
+// waiting writer.
+func (ix *index) metaLocked(key string) Meta { return *ix.metas[key] }

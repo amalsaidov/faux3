@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -14,11 +15,16 @@ func listKeys(r ListResult) []string {
 	return out
 }
 
-func TestListByteOrder(t *testing.T) {
-	s, _ := newBucket(t)
-	for _, k := range []string{"b", "a0", "a/", "a", "B", "\u00e9", "Z"} {
+func putKeys(t *testing.T, s *FS, keys ...string) {
+	t.Helper()
+	for _, k := range keys {
 		put(t, s, k, "x")
 	}
+}
+
+func TestListByteOrder(t *testing.T) {
+	s, _ := newBucket(t)
+	putKeys(t, s, "b", "a0", "a/", "a", "B", "\u00e9", "Z")
 	r, err := s.List("bkt", ListParams{MaxKeys: 1000})
 	if err != nil {
 		t.Fatal(err)
@@ -31,9 +37,7 @@ func TestListByteOrder(t *testing.T) {
 
 func TestListTable(t *testing.T) {
 	s, _ := newBucket(t)
-	for _, k := range []string{"a/1", "a/2", "a/b/3", "b/1", "c", "d/1", "d/2", "e"} {
-		put(t, s, k, "x")
-	}
+	putKeys(t, s, "a/1", "a/2", "a/b/3", "b/1", "c", "d/1", "d/2", "e")
 	cases := []struct {
 		name   string
 		p      ListParams
@@ -77,9 +81,7 @@ func TestListTable(t *testing.T) {
 // equals the unpaginated listing, with common prefixes never repeated.
 func TestListPaginate(t *testing.T) {
 	s, _ := newBucket(t)
-	for _, k := range []string{"a/1", "a/2", "a/b/3", "b/1", "c", "d/1", "d/2", "e"} {
-		put(t, s, k, "x")
-	}
+	putKeys(t, s, "a/1", "a/2", "a/b/3", "b/1", "c", "d/1", "d/2", "e")
 	for _, delim := range []string{"", "/"} {
 		full, _ := s.List("bkt", ListParams{Delimiter: delim, MaxKeys: 1000})
 		for size := 1; size <= 4; size++ {
@@ -122,7 +124,7 @@ func TestListErrors(t *testing.T) {
 		t.Fatalf("bucket = %v", err)
 	}
 	for i := 0; i < 1001; i++ {
-		put(t, s, string(rune('a'+i%26))+string(rune('0'+i/26%10))+string(rune('A'+i/260)), "")
+		put(t, s, fmt.Sprintf("k%04d", i), "")
 	}
 	r, _ := s.List("bkt", ListParams{MaxKeys: 5000})
 	if len(r.Objects) != 1000 || !r.IsTruncated {

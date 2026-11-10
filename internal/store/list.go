@@ -44,6 +44,20 @@ func isCommonPrefix(s, prefix, delim string) bool {
 	return i >= 0 && i+len(delim) == len(rest)
 }
 
+// startAfter returns the exclusive resume point: the later of StartAfter
+// and the decoded continuation token.
+func startAfter(p ListParams) (string, error) {
+	start := p.StartAfter
+	if p.ContinuationToken != "" {
+		tok, err := decodeToken(p.ContinuationToken)
+		if err != nil {
+			return "", err
+		}
+		start = max(start, tok)
+	}
+	return start, nil
+}
+
 // List implements ListObjectsV2 over the bucket's sorted index using
 // plain byte order.
 func (s *FS) List(bucketName string, p ListParams) (ListResult, error) {
@@ -53,15 +67,9 @@ func (s *FS) List(bucketName string, p ListParams) (ListResult, error) {
 	if p.MaxKeys > maxListKeys {
 		p.MaxKeys = maxListKeys
 	}
-	start := p.StartAfter
-	if p.ContinuationToken != "" {
-		tok, err := decodeToken(p.ContinuationToken)
-		if err != nil {
-			return ListResult{}, err
-		}
-		if tok > start {
-			start = tok
-		}
+	start, err := startAfter(p)
+	if err != nil {
+		return ListResult{}, err
 	}
 	b, err := s.rlockBucket(bucketName)
 	if err != nil {
@@ -120,7 +128,7 @@ func (s *FS) List(bucketName string, p ListParams) (ListResult, error) {
 			res.IsTruncated = true
 			break
 		}
-		res.Objects = append(res.Objects, *ix.metas[k])
+		res.Objects = append(res.Objects, ix.metaLocked(k))
 		count++
 		last = k
 		i++

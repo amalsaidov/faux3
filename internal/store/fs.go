@@ -12,14 +12,12 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
-	"net/netip"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 )
 
 const (
@@ -147,41 +145,6 @@ func wrapWritable(dir string, err error) error {
 	return err
 }
 
-// ValidBucketName reports whether name follows the S3 bucket naming rules.
-func ValidBucketName(name string) bool {
-	if len(name) < 3 || len(name) > 63 {
-		return false
-	}
-	isAlnum := func(c byte) bool { return c >= 'a' && c <= 'z' || c >= '0' && c <= '9' }
-	for i := 0; i < len(name); i++ {
-		c := name[i]
-		if !(isAlnum(c) || c == '.' || c == '-') {
-			return false
-		}
-	}
-	if !isAlnum(name[0]) || !isAlnum(name[len(name)-1]) {
-		return false
-	}
-	if strings.Contains(name, "..") || strings.HasPrefix(name, "xn--") || strings.HasSuffix(name, "-s3alias") {
-		return false
-	}
-	if a, err := netip.ParseAddr(name); err == nil && a.Is4() {
-		return false
-	}
-	return true
-}
-
-// ValidateKey checks an object key: valid UTF-8, 1..1024 bytes.
-func ValidateKey(key string) error {
-	if len(key) > maxKeyBytes {
-		return ErrKeyTooLong
-	}
-	if key == "" || !utf8.ValidString(key) {
-		return ErrInvalidKey
-	}
-	return nil
-}
-
 func keyHash(key string) string {
 	sum := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(sum[:])
@@ -215,17 +178,7 @@ func (s *FS) syncDir(dir string) error {
 // writeFileAtomic writes via a temp file and rename in the target dir.
 func (s *FS) writeFileAtomic(path string, data []byte) error {
 	tmp := path + ".tmp-" + randName("")
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	_, err = f.Write(data)
-	if err == nil && s.fsync {
-		err = f.Sync()
-	}
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
+	err := s.writeNewFile(tmp, data)
 	if err == nil {
 		err = os.Rename(tmp, path)
 	}
@@ -236,11 +189,16 @@ func (s *FS) writeFileAtomic(path string, data []byte) error {
 	return s.syncDir(filepath.Dir(path))
 }
 
+// bucketByName returns the live bucket entry, or nil.
+func (s *FS) bucketByName(name string) *bucket {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buckets[name]
+}
+
 // rlockBucket returns the bucket with its read lock held, or ErrNoSuchBucket.
 func (s *FS) rlockBucket(name string) (*bucket, error) {
-	s.mu.Lock()
-	b := s.buckets[name]
-	s.mu.Unlock()
+	b := s.bucketByName(name)
 	if b == nil {
 		return nil, ErrNoSuchBucket
 	}
@@ -283,9 +241,7 @@ func (s *FS) CreateBucket(name string) error {
 
 // DeleteBucket removes an empty bucket.
 func (s *FS) DeleteBucket(name string) error {
-	s.mu.Lock()
-	b := s.buckets[name]
-	s.mu.Unlock()
+	b := s.bucketByName(name)
 	if b == nil {
 		return ErrNoSuchBucket
 	}
@@ -397,7 +353,7 @@ func (s *FS) PutObject(ctx context.Context, bucketName, key string, in PutInput)
 	if err != nil {
 		return Meta{}, err
 	}
-	if err := s.writeMeta(filepath.Join(stage, "meta.json"), mdata); err != nil {
+	if err := s.writeNewFile(filepath.Join(stage, "meta.json"), mdata); err != nil {
 		return Meta{}, err
 	}
 	if err := s.syncDir(stage); err != nil {
@@ -491,7 +447,9 @@ func (s *FS) writeData(ctx context.Context, path string, body io.Reader) (int64,
 	return n, hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func (s *FS) writeMeta(path string, data []byte) error {
+// writeNewFile creates path exclusively and writes data, fsyncing when
+// enabled.
+func (s *FS) writeNewFile(path string, data []byte) error {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
@@ -509,6 +467,18 @@ func (s *FS) writeMeta(path string, data []byte) error {
 // GetObject opens the data file under the key read lock; the returned fd
 // survives a later overwrite or delete.
 func (s *FS) GetObject(bucketName, key string) (*os.File, Meta, error) {
+	return s.lookup(bucketName, key, true)
+}
+
+// HeadObject returns the object's metadata.
+func (s *FS) HeadObject(bucketName, key string) (Meta, error) {
+	_, m, err := s.lookup(bucketName, key, false)
+	return m, err
+}
+
+// lookup finds a key under the bucket and key read locks and, when open is
+// set, opens its data file.
+func (s *FS) lookup(bucketName, key string, open bool) (*os.File, Meta, error) {
 	b, err := s.rlockBucket(bucketName)
 	if err != nil {
 		return nil, Meta{}, err
@@ -521,6 +491,9 @@ func (s *FS) GetObject(bucketName, key string) (*os.File, Meta, error) {
 	if !ok {
 		return nil, Meta{}, ErrNoSuchKey
 	}
+	if !open {
+		return nil, m, nil
+	}
 	f, err := os.Open(filepath.Join(s.keyDir(bucketName, key), "data"))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -529,23 +502,6 @@ func (s *FS) GetObject(bucketName, key string) (*os.File, Meta, error) {
 		return nil, Meta{}, err
 	}
 	return f, m, nil
-}
-
-// HeadObject returns the object's metadata.
-func (s *FS) HeadObject(bucketName, key string) (Meta, error) {
-	b, err := s.rlockBucket(bucketName)
-	if err != nil {
-		return Meta{}, err
-	}
-	defer b.mu.RUnlock()
-	kl := s.keys.lock(bucketName, key)
-	kl.RLock()
-	defer kl.RUnlock()
-	m, ok := b.idx.get(key)
-	if !ok {
-		return Meta{}, ErrNoSuchKey
-	}
-	return m, nil
 }
 
 // DeleteObject removes a key; deleting a missing key succeeds.
