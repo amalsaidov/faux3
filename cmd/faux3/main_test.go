@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/change-fabric/faux3/internal/sigv4"
 )
 
 func TestProbeDataDirWritable(t *testing.T) {
@@ -35,17 +38,52 @@ func TestProbeDataDirFailureNamesUID(t *testing.T) {
 	}
 }
 
+var testNow = time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+
+func testVerifier() *sigv4.Verifier {
+	return &sigv4.Verifier{AccessKeyID: "faux3", SecretAccessKey: "faux3", Region: "us-east-1",
+		ClockSkew: 15 * time.Minute, Now: func() time.Time { return testNow }}
+}
+
 func TestHandler(t *testing.T) {
-	h := newHandler(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/-/healthz", nil))
-	if rec.Code != 200 || rec.Body.String() != "ok" {
-		t.Fatalf("healthz: %d %q", rec.Code, rec.Body)
+	h := newHandler(slog.New(slog.NewTextHandler(io.Discard, nil)), testVerifier())
+	signer := sigv4.Signer{AccessKeyID: "faux3", SecretAccessKey: "faux3", Region: "us-east-1"}
+	cases := []struct {
+		name string
+		req  func() *http.Request
+		code int
+		body string
+	}{
+		{"healthz", func() *http.Request { return httptest.NewRequest(http.MethodGet, "/-/healthz", nil) }, 200, "ok"},
+		{"unauthenticated", func() *http.Request { return httptest.NewRequest(http.MethodGet, "/bucket", nil) }, 403, "<Code>AccessDenied</Code>"},
+		{"signed", func() *http.Request {
+			r := httptest.NewRequest(http.MethodGet, "/bucket", nil)
+			signer.SignHeader(r, testNow, sigv4.EmptySHA256)
+			return r
+		}, 501, "<Code>NotImplemented</Code>"},
+		{"presigned", func() *http.Request {
+			r := httptest.NewRequest(http.MethodGet, "/bucket/key", nil)
+			signer.Presign(r, testNow, time.Hour)
+			return r
+		}, 501, "<Code>NotImplemented</Code>"},
+		{"wrong secret", func() *http.Request {
+			s := signer
+			s.SecretAccessKey = "nope"
+			r := httptest.NewRequest(http.MethodGet, "/bucket", nil)
+			s.SignHeader(r, testNow, sigv4.EmptySHA256)
+			return r
+		}, 403, "<StringToSign>"},
+		{"head error has no body", func() *http.Request { return httptest.NewRequest(http.MethodHead, "/bucket", nil) }, 403, ""},
 	}
-	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/bucket", nil))
-	if rec.Code != 501 || !strings.Contains(rec.Body.String(), "<Code>NotImplemented</Code>") {
-		t.Fatalf("other: %d %q", rec.Code, rec.Body)
+	for _, c := range cases {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, c.req())
+		if rec.Code != c.code || !strings.Contains(rec.Body.String(), c.body) || (c.body == "" && rec.Body.Len() != 0) {
+			t.Errorf("%s: %d %q", c.name, rec.Code, rec.Body)
+		}
+		if c.name != "healthz" && rec.Header().Get("x-amz-request-id") == "" {
+			t.Errorf("%s: missing x-amz-request-id", c.name)
+		}
 	}
 }
 
@@ -66,7 +104,7 @@ func TestDebugLogRedactsAndLogsWireHeaders(t *testing.T) {
 	req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential=x, SignedHeaders=host, Signature=0123456789abcdef")
 	req.Header.Set("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD")
 	req.Header.Set("X-Amz-Checksum-Crc32", "AAAAAA==")
-	newHandler(log).ServeHTTP(httptest.NewRecorder(), req)
+	newHandler(log, testVerifier()).ServeHTTP(httptest.NewRecorder(), req)
 	out := buf.String()
 	for _, want := range []string{"x-amz-content-sha256=UNSIGNED-PAYLOAD", "x-amz-checksum-crc32", "Signature=01234567...", "bytes=5"} {
 		if !strings.Contains(out, want) {

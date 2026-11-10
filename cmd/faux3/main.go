@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/change-fabric/faux3/internal/config"
+	"github.com/change-fabric/faux3/internal/sigv4"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".
@@ -57,8 +58,14 @@ func serve(stderr io.Writer) int {
 	}
 
 	srv := &http.Server{
-		Addr:              net.JoinHostPort("0.0.0.0", strconv.Itoa(cfg.Port)),
-		Handler:           newHandler(log),
+		Addr: net.JoinHostPort("0.0.0.0", strconv.Itoa(cfg.Port)),
+		Handler: newHandler(log, &sigv4.Verifier{
+			AccessKeyID:     cfg.AccessKeyID,
+			SecretAccessKey: cfg.SecretAccessKey,
+			Region:          cfg.Region,
+			ClockSkew:       cfg.ClockSkew,
+			Now:             time.Now,
+		}),
 		ReadHeaderTimeout: 30 * time.Second,
 	}
 
@@ -99,21 +106,6 @@ func probeDataDir(dir string) error {
 	name := f.Name()
 	f.Close()
 	return os.Remove(name)
-}
-
-func newHandler(log *slog.Logger) http.Handler {
-	return debugLog(log, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/-/healthz" && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			io.WriteString(w, "ok")
-			return
-		}
-		drainAndLog(r.Context(), log, r)
-		w.Header().Set("Content-Type", "application/xml")
-		w.WriteHeader(http.StatusNotImplemented)
-		io.WriteString(w, `<?xml version="1.0" encoding="UTF-8"?>`+"\n"+
-			`<Error><Code>NotImplemented</Code><Message>A header or operation you provided implies functionality that is not implemented.</Message></Error>`)
-	}))
 }
 
 // healthcheck probes the local server; it backs the Docker HEALTHCHECK
