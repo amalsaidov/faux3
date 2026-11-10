@@ -5,6 +5,8 @@ The format is based on Keep a Changelog, and this project uses Semantic Versioni
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-10
+
 ### Added
 
 - Documentation: README quick start, ROADMAP.md, docs/compatibility.md, docs/limitations.md, docs/configuration.md, docs/storage-format.md, ADRs 0001 to 0010, AGENTS.md, CONTRIBUTING.md, and SECURITY.md.
