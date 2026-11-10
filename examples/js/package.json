@@ -1,0 +1,13 @@
+{
+  "name": "faux3-example-js",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "upload": "node upload.mjs",
+    "presign": "node presign.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1165.0",
+    "@aws-sdk/s3-request-presigner": "3.1165.0"
+  }
+}

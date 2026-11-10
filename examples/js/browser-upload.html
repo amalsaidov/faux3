@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>faux3 browser upload</title>
+</head>
+<body>
+  <!--
+    Upload a file from the browser to faux3 with a presigned PUT URL.
+
+    1. Start faux3 with FAUX3_CORS_ORIGINS set to the origin serving this page,
+       for example FAUX3_CORS_ORIGINS=http://localhost:5173. Without it the
+       browser blocks the request: faux3 sends no CORS headers by default.
+    2. Generate a URL with `node presign.mjs` (it presigns with
+       requestChecksumCalculation: "WHEN_REQUIRED") and paste the PUT URL below.
+    3. Serve this file from that origin, for example
+       `npx serve -l 5173 .` inside a node container.
+  -->
+  <h1>faux3 browser upload</h1>
+  <form id="form">
+    <p><label>Presigned PUT URL <input id="url" type="url" size="80" required></label></p>
+    <p><label>File <input id="file" type="file" required></label></p>
+    <p><button type="submit">Upload</button></p>
+  </form>
+  <pre id="out" aria-live="polite"></pre>
+  <script>
+    document.getElementById("form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const out = document.getElementById("out");
+      const file = document.getElementById("file").files[0];
+      try {
+        const res = await fetch(document.getElementById("url").value, { method: "PUT", body: file });
+        out.textContent = res.ok
+          ? `Uploaded ${file.name} (${file.size} bytes), ETag ${res.headers.get("ETag")}`
+          : `Upload failed: ${res.status}\n${await res.text()}`;
+      } catch (err) {
+        out.textContent = `Request blocked: ${err}. Check FAUX3_CORS_ORIGINS.`;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+# faux3 plus a small Node app that uploads, reads, lists, and presigns.
+# Run from the repository root:
+#   docker compose -f examples/compose/compose.yaml up --build --abort-on-container-exit --exit-code-from app
+#   docker compose -f examples/compose/compose.yaml down -v
+services:
+  faux3:
+    # Builds from this repository so the example works before a release.
+    # After v0.1.0 is published, use the image instead:
+    # image: ghcr.io/change-fabric/faux3:0.1.0
+    build: ../..
+    ports: ["${FAUX3_HOST_PORT:-9000}:9000"]  # override if 9000 is taken
+    environment:
+      # Browser uploads with presigned URLs need the page's origin here.
+      # Unset means no CORS headers at all.
+      FAUX3_CORS_ORIGINS: http://localhost:5173
+    volumes:
+      - faux3-data:/data
+      # Bind-mount variant: the image runs as uid 65532, so either chown the
+      # host directory to 65532 or run as your own user:
+      # - ./data:/data
+    # user: "${UID}:${GID}"
+    healthcheck:
+      test: ["CMD", "/faux3", "healthcheck"]
+      interval: 2s
+      retries: 30
+
+  app:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ../js:/app
+      - app-node-modules:/app/node_modules
+    environment:
+      S3_ENDPOINT: http://faux3:9000
+      S3_BUCKET: example
+      AWS_ACCESS_KEY_ID: faux3
+      AWS_SECRET_ACCESS_KEY: faux3
+      AWS_REGION: us-east-1
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && node upload.mjs && node presign.mjs"]
+    depends_on:
+      faux3:
+        condition: service_healthy
+
+volumes:
+  faux3-data:
+  app-node-modules:
