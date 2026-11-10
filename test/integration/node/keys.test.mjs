@@ -12,7 +12,7 @@ after(async () => {
 
 const keys = [
   "a b",
-  "uni/café",
+  "uni/caf\u00e9",
   "emoji/\u{1F600}",
   "plus+sign",
   "percent%2Fliteral",
