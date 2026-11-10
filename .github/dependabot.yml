@@ -1,0 +1,39 @@
+# Dependabot updates dependencies only. It never changes Faux3's own version;
+# releases are cut by hand and stay 0.x (see ADR 0009).
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      gomod:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directories:
+      - /
+      - /test/integration/cli
+    schedule:
+      interval: weekly
+    groups:
+      docker:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directories:
+      - /test/integration/node
+      - /examples/js
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ["*"]
