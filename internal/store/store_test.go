@@ -87,7 +87,7 @@ func TestRoundTripAndReopen(t *testing.T) {
 
 func TestUnusualKeys(t *testing.T) {
 	s, _ := newBucket(t)
-	keys := []string{"a b", "unicode-é世", "plus+", "pct%20", "..", "a//b", "/lead", "../../etc", strings.Repeat("k", 1024)}
+	keys := []string{"a b", "unicode-\u00e9\u4e16", "plus+", "pct%20", "..", "a//b", "/lead", "../../etc", strings.Repeat("k", 1024)}
 	for _, k := range keys {
 		put(t, s, k, "v:"+k)
 	}

@@ -16,14 +16,14 @@ func listKeys(r ListResult) []string {
 
 func TestListByteOrder(t *testing.T) {
 	s, _ := newBucket(t)
-	for _, k := range []string{"b", "a0", "a/", "a", "B", "é", "Z"} {
+	for _, k := range []string{"b", "a0", "a/", "a", "B", "\u00e9", "Z"} {
 		put(t, s, k, "x")
 	}
 	r, err := s.List("bkt", ListParams{MaxKeys: 1000})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"B", "Z", "a", "a/", "a0", "b", "é"}
+	want := []string{"B", "Z", "a", "a/", "a0", "b", "\u00e9"}
 	if got := listKeys(r); !reflect.DeepEqual(got, want) || r.IsTruncated {
 		t.Fatalf("got %q truncated=%v", got, r.IsTruncated)
 	}
