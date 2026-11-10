@@ -17,3 +17,6 @@ The format is based on Keep a Changelog, and this project uses Semantic Versioni
 - 501 NotImplemented for every other subresource, POST requests, ListObjects V1, CopyObject, tagging, non-private canned ACLs, and server-side encryption headers.
 - Opt-in CORS through `FAUX3_CORS_ORIGINS`, with preflight answered before authentication.
 - `x-amz-request-id` and `x-amz-id-2` on every response, panic recovery, and a JSON access log line per request.
+- Real-client integration suite in Docker Compose (`scripts/integration.sh`): AWS SDK for JavaScript v3 and AWS CLI v2 tests, a restart and SIGKILL persistence test, and a 1 GiB upload under a 128 MiB memory limit.
+- User metadata response headers are sent lowercase (`x-amz-meta-color`), so the AWS CLI reports the key as written.
+- Unsigned aws-chunked uploads stream chunks of any size; the AWS CLI sends a whole file as one chunk. Only signed chunks keep the 16 MiB buffer cap.
