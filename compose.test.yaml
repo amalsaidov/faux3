@@ -32,6 +32,16 @@ services:
       AWS_DEFAULT_REGION: us-east-1
       AWS_CONFIG_FILE: /tests/aws-config
     depends_on: { faux3: { condition: service_healthy } }
+  faux3-memtest:
+    build: .
+    profiles: ["mem"]
+    mem_limit: 128m
+    volumes: ["faux3-mem-data:/data"]
+    healthcheck:
+      test: ["CMD", "/faux3", "healthcheck"]
+      interval: 2s
+      retries: 30
 volumes:
   faux3-test-data:
   faux3-node-modules:
+  faux3-mem-data:
