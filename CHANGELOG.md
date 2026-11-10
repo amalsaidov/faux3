@@ -7,6 +7,8 @@ The format is based on Keep a Changelog, and this project uses Semantic Versioni
 
 ### Added
 
+- Documentation: README quick start, ROADMAP.md, docs/compatibility.md, docs/limitations.md, docs/configuration.md, docs/storage-format.md, ADRs 0001 to 0010, AGENTS.md, CONTRIBUTING.md, and SECURITY.md.
+- Examples: `examples/compose` (faux3 plus a Node app) and `examples/js` (upload, presign, browser upload).
 - S3 API server (`internal/s3api`) serving the nine supported operations: CreateBucket, ListBuckets, HeadBucket, DeleteBucket, PutObject, GetObject, HeadObject, DeleteObject, and ListObjectsV2.
 - Path-style routing that parses the raw path by hand, so keys containing `..`, `//`, encoded slashes, or a leading slash round-trip unchanged.
 - SigV4 header and presigned authentication on every request except `GET /-/healthz` and CORS preflight.
