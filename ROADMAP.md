@@ -18,7 +18,7 @@ Batch delete of up to 1000 keys in one POST.
 - Unblocks: `aws s3 rm --recursive`, `aws s3 sync --delete`, SDK bulk cleanup in test teardown.
 - AWS API: https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html
 - Requires an ADR before implementation.
-- Issue: not filed yet
+- Issue: https://github.com/change-fabric/faux3/issues/2
 
 ### CopyObject
 
@@ -27,7 +27,7 @@ Server-side copy from one key (or bucket) to another.
 - Unblocks: `aws s3 mv`, S3-to-S3 `aws s3 cp`, SDK copy and rename helpers.
 - AWS API: https://docs.aws.amazon.com/AmazonS3/latest/API/API_CopyObject.html
 - Requires an ADR before implementation.
-- Issue: not filed yet
+- Issue: https://github.com/change-fabric/faux3/issues/3
 
 ### ListObjects (V1)
 
@@ -36,7 +36,7 @@ The original marker-based listing API.
 - Unblocks: older SDKs and tools that still call V1 listing, such as some backup and static-site tools.
 - AWS API: https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjects.html
 - Requires an ADR before implementation.
-- Issue: not filed yet
+- Issue: https://github.com/change-fabric/faux3/issues/4
 
 ### GetBucketLocation (real)
 
@@ -45,7 +45,7 @@ Today a minimal stub answers this for CLI region discovery. A real implementatio
 - Unblocks: tools that branch on bucket region, and an honest compatibility row instead of a stub.
 - AWS API: https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketLocation.html
 - Requires an ADR before implementation.
-- Issue: not filed yet
+- Issue: https://github.com/change-fabric/faux3/issues/5
 
 ### Multipart upload
 
@@ -54,7 +54,7 @@ Six operations as one unit: CreateMultipartUpload, UploadPart, CompleteMultipart
 - Unblocks: `aws s3 cp` of files over 8 MB without raising `multipart_threshold`, `@aws-sdk/lib-storage` Upload for large bodies, objects over 5 GiB.
 - AWS API: https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateMultipartUpload.html, https://docs.aws.amazon.com/AmazonS3/latest/API/API_UploadPart.html, https://docs.aws.amazon.com/AmazonS3/latest/API/API_CompleteMultipartUpload.html, https://docs.aws.amazon.com/AmazonS3/latest/API/API_AbortMultipartUpload.html, https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListParts.html, https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListMultipartUploads.html
 - Requires an ADR before implementation.
-- Issue: not filed yet
+- Issue: https://github.com/change-fabric/faux3/issues/6
 
 ## Later
 
