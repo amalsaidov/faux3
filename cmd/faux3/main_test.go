@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -34,7 +36,7 @@ func TestProbeDataDirFailureNamesUID(t *testing.T) {
 }
 
 func TestHandler(t *testing.T) {
-	h := newHandler()
+	h := newHandler(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/-/healthz", nil))
 	if rec.Code != 200 || rec.Body.String() != "ok" {
@@ -54,5 +56,24 @@ func TestVersionAndUnknown(t *testing.T) {
 	}
 	if rc := run([]string{"bogus"}, &out, &errb); rc != 2 {
 		t.Fatalf("unknown: rc=%d", rc)
+	}
+}
+
+func TestDebugLogRedactsAndLogsWireHeaders(t *testing.T) {
+	var buf bytes.Buffer
+	log := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	req := httptest.NewRequest(http.MethodPut, "/b/k", strings.NewReader("hello"))
+	req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential=x, SignedHeaders=host, Signature=0123456789abcdef")
+	req.Header.Set("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD")
+	req.Header.Set("X-Amz-Checksum-Crc32", "AAAAAA==")
+	newHandler(log).ServeHTTP(httptest.NewRecorder(), req)
+	out := buf.String()
+	for _, want := range []string{"x-amz-content-sha256=UNSIGNED-PAYLOAD", "x-amz-checksum-crc32", "Signature=01234567...", "bytes=5"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("log missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "0123456789abcdef") {
+		t.Fatal("full signature logged")
 	}
 }
