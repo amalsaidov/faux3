@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 992" width="720" height="992" role="img" aria-labelledby="t d" data-diagram-type="flow">
   <title id="t">Faux3 request pipeline</title>
-  <desc id="d">Each request passes through middleware (request id, logging, panic recovery). /healthz short-circuits with 200 and OPTIONS gets a CORS preflight answer. The router splits the path and resolves one of nine operations, returning 501 for anything else. SigV4 verification checks a header or presigned signature; the handler validates inputs, the payload decoder unwraps aws-chunked bodies while hashing, and the store reads or writes the filesystem. Success returns an XML response; an unsupported op, bad signature, hash mismatch, or store error returns an XML error.</desc>
+  <desc id="d">Each request passes through middleware (request id, logging, panic recovery). /-/healthz short-circuits with 200 and OPTIONS gets a CORS preflight answer. The router splits the path and resolves one of nine operations, returning 501 for anything else. SigV4 verification checks a header or presigned signature; the handler validates inputs, the payload decoder unwraps aws-chunked bodies while hashing, and the store reads or writes the filesystem. Success returns an XML response; an unsupported op, bad signature, hash mismatch, or store error returns an XML error.</desc>
   <style>
     svg { --bg: #F5F5F5; --surface: #FFFFFF; --ink: #2D3142; --muted: #4F5D75; --soft: #5A6580; --line: #4F5D75; --rule: #D9DADD; --accent: #B5401C; --accent-tint: #F2E9E6; --link: #2E5AA8; }
     @media (prefers-color-scheme: dark) {
@@ -41,7 +41,7 @@
   <path class="edge fail" data-from="store" data-to="resp" d="M176 840 V880" marker-end="url(#arrow-accent)"/>
   <text class="note" x="184" y="864" font-size="12" text-anchor="start">ok</text>
   <path class="edge" data-from="health" data-to="healthz" d="M304 184 H432" marker-end="url(#arrow)"/>
-  <text class="note" x="368" y="174" font-size="12" text-anchor="middle">/healthz</text>
+  <text class="note" x="368" y="174" font-size="12" text-anchor="middle">/-/healthz</text>
   <path class="edge" data-from="cors" data-to="preflight" d="M304 288 H432" marker-end="url(#arrow)"/>
   <text class="note" x="368" y="278" font-size="12" text-anchor="middle">OPTIONS</text>
   <path class="edge" data-from="router" data-to="err" d="M304 392 H432" marker-end="url(#arrow)"/>
@@ -53,7 +53,7 @@
   <path class="edge" data-from="store" data-to="err" d="M304 808 H432" marker-end="url(#arrow)"/>
   <text class="note" x="368" y="798" font-size="12" text-anchor="middle">store error</text>
   <g class="node" data-id="mw"><rect x="48" y="48" width="256" height="64" rx="6"/><text class="label" x="176" y="76.5" font-size="14" text-anchor="middle"><tspan x="176">Middleware</tspan><tspan x="176" dy="16.8">request id, log, recover</tspan></text></g>
-  <g class="node" data-id="health"><rect x="48" y="152" width="256" height="64" rx="6"/><text class="label" x="176" y="180.5" font-size="14" text-anchor="middle"><tspan x="176">Health check</tspan><tspan x="176" dy="16.8">is path /healthz?</tspan></text></g>
+  <g class="node" data-id="health"><rect x="48" y="152" width="256" height="64" rx="6"/><text class="label" x="176" y="180.5" font-size="14" text-anchor="middle"><tspan x="176">Health check</tspan><tspan x="176" dy="16.8">is path /-/healthz?</tspan></text></g>
   <g class="node" data-id="cors"><rect x="48" y="256" width="256" height="64" rx="6"/><text class="label" x="176" y="284.5" font-size="14" text-anchor="middle"><tspan x="176">CORS preflight</tspan><tspan x="176" dy="16.8">is method OPTIONS?</tspan></text></g>
   <g class="node" data-id="router"><rect x="48" y="360" width="256" height="64" rx="6"/><text class="label" x="176" y="388.5" font-size="14" text-anchor="middle"><tspan x="176">Router</tspan><tspan x="176" dy="16.8">split path, resolve op</tspan></text></g>
   <g class="node" data-id="sigv4"><rect x="48" y="464" width="256" height="64" rx="6"/><text class="label" x="176" y="492.5" font-size="14" text-anchor="middle"><tspan x="176">SigV4 verify</tspan><tspan x="176" dy="16.8">header or presigned</tspan></text></g>

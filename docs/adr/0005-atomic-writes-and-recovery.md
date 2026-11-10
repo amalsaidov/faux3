@@ -13,6 +13,8 @@ PutObject streams the body into a new directory under `.faux3/tmp/` (same filesy
 
 At startup, faux3 empties `.faux3/tmp/`, removes key directories missing `meta.json`, and skips (with a warning) any `meta.json` whose key hashes elsewhere.
 
+![PutObject sequence](../diagrams/put-object-sequence.svg)
+
 ## Consequences
 
 - Readers see the old or the new object, never a mix.

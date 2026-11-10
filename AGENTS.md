@@ -78,7 +78,14 @@ Details in [docs/configuration.md](docs/configuration.md).
 
 ## ADRs and diagrams
 
-ADRs live in [docs/adr](docs/adr/README.md). Diagrams live in `docs/diagrams/`: architecture.svg, request-pipeline.svg, put-object-sequence.svg, storage-layout.svg. When the architecture changes, update the affected diagrams with /cf:diagram.
+ADRs live in [docs/adr](docs/adr/README.md). Diagrams live in `docs/diagrams/`:
+
+- [architecture.svg](docs/diagrams/architecture.svg): clients, the container, and the data volume.
+- [request-pipeline.svg](docs/diagrams/request-pipeline.svg): middleware to response for every request.
+- [put-object-sequence.svg](docs/diagrams/put-object-sequence.svg): the atomic PutObject write.
+- [storage-layout.svg](docs/diagrams/storage-layout.svg): the on-disk layout under `/data`.
+
+When the architecture changes, update the affected diagrams with /cf:diagram.
 
 ## Prose rules
 

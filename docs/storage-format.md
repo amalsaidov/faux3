@@ -14,6 +14,8 @@ Do not edit `/data` by hand. The layout is an implementation detail, versioned b
 
 `h` is the lowercase hex SHA-256 of the key bytes. Keys are never derived from paths: the authoritative key is the `key` field in `meta.json`. Hashed directories avoid collisions on case-insensitive or Unicode-normalizing filesystems (macOS bind mounts), conflicts between keys like `a` and `a/b`, and file name length limits.
 
+![Storage layout](diagrams/storage-layout.svg)
+
 ## meta.json
 
 | Field | Type | Meaning |

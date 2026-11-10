@@ -122,6 +122,12 @@ SigV4 rejects requests more than 15 minutes from the server clock with 403 Reque
 
 A single static Go binary (standard library only) in a distroless image: an HTTP server, a path-style router, a SigV4 verifier, and a filesystem store under `/data` with an in-memory key index. Diagrams live in `docs/diagrams/`, and design decisions are recorded as ADRs in [docs/adr](docs/adr/README.md).
 
+![Faux3 architecture](docs/diagrams/architecture.svg)
+
+Every request takes the same path through the binary:
+
+![Faux3 request pipeline](docs/diagrams/request-pipeline.svg)
+
 ## Contributing, security, license
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): Docker-only dev setup, tests, roadmap labels, release policy.
