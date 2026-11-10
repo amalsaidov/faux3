@@ -12,7 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/change-fabric/faux3/internal/config"
 	"github.com/change-fabric/faux3/internal/sigv4"
+	"github.com/change-fabric/faux3/internal/store"
 )
 
 func TestProbeDataDirWritable(t *testing.T) {
@@ -45,8 +47,24 @@ func testVerifier() *sigv4.Verifier {
 		ClockSkew: 15 * time.Minute, Now: func() time.Time { return testNow }}
 }
 
+func testServer(t *testing.T, log *slog.Logger) http.Handler {
+	t.Helper()
+	cfg, err := config.Load(func(string) string { return "" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.DataDir = t.TempDir()
+	st, err := store.Open(store.Options{Dir: cfg.DataDir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := newServer(log, cfg, st)
+	srv.Verifier = testVerifier()
+	return debugLog(log, srv)
+}
+
 func TestHandler(t *testing.T) {
-	h := newHandler(slog.New(slog.NewTextHandler(io.Discard, nil)), testVerifier())
+	h := testServer(t, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	signer := sigv4.Signer{AccessKeyID: "faux3", SecretAccessKey: "faux3", Region: "us-east-1"}
 	cases := []struct {
 		name string
@@ -57,15 +75,15 @@ func TestHandler(t *testing.T) {
 		{"healthz", func() *http.Request { return httptest.NewRequest(http.MethodGet, "/-/healthz", nil) }, 200, "ok"},
 		{"unauthenticated", func() *http.Request { return httptest.NewRequest(http.MethodGet, "/bucket", nil) }, 403, "<Code>AccessDenied</Code>"},
 		{"signed", func() *http.Request {
-			r := httptest.NewRequest(http.MethodGet, "/bucket", nil)
+			r := httptest.NewRequest(http.MethodGet, "/bucket?list-type=2", nil)
 			signer.SignHeader(r, testNow, sigv4.EmptySHA256)
 			return r
-		}, 501, "<Code>NotImplemented</Code>"},
+		}, 404, "<Code>NoSuchBucket</Code>"},
 		{"presigned", func() *http.Request {
 			r := httptest.NewRequest(http.MethodGet, "/bucket/key", nil)
 			signer.Presign(r, testNow, time.Hour)
 			return r
-		}, 501, "<Code>NotImplemented</Code>"},
+		}, 404, "<Code>NoSuchBucket</Code>"},
 		{"wrong secret", func() *http.Request {
 			s := signer
 			s.SecretAccessKey = "nope"
@@ -104,9 +122,9 @@ func TestDebugLogRedactsAndLogsWireHeaders(t *testing.T) {
 	req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential=x, SignedHeaders=host, Signature=0123456789abcdef")
 	req.Header.Set("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD")
 	req.Header.Set("X-Amz-Checksum-Crc32", "AAAAAA==")
-	newHandler(log, testVerifier()).ServeHTTP(httptest.NewRecorder(), req)
+	testServer(t, log).ServeHTTP(httptest.NewRecorder(), req)
 	out := buf.String()
-	for _, want := range []string{"x-amz-content-sha256=UNSIGNED-PAYLOAD", "x-amz-checksum-crc32", "Signature=01234567...", "bytes=5"} {
+	for _, want := range []string{"x-amz-content-sha256=UNSIGNED-PAYLOAD", "x-amz-checksum-crc32", "Signature=01234567..."} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("log missing %q:\n%s", want, out)
 		}

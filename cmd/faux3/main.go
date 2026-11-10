@@ -17,7 +17,9 @@ import (
 	"time"
 
 	"github.com/change-fabric/faux3/internal/config"
+	"github.com/change-fabric/faux3/internal/s3api"
 	"github.com/change-fabric/faux3/internal/sigv4"
+	"github.com/change-fabric/faux3/internal/store"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".
@@ -57,16 +59,18 @@ func serve(stderr io.Writer) int {
 		return 1
 	}
 
+	st, err := store.Open(store.Options{Dir: cfg.DataDir, Fsync: cfg.Fsync, MaxObjectSize: cfg.MaxObjectSize, Logger: log})
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+
 	srv := &http.Server{
-		Addr: net.JoinHostPort("0.0.0.0", strconv.Itoa(cfg.Port)),
-		Handler: newHandler(log, &sigv4.Verifier{
-			AccessKeyID:     cfg.AccessKeyID,
-			SecretAccessKey: cfg.SecretAccessKey,
-			Region:          cfg.Region,
-			ClockSkew:       cfg.ClockSkew,
-			Now:             time.Now,
-		}),
-		ReadHeaderTimeout: 30 * time.Second,
+		Addr:              net.JoinHostPort("0.0.0.0", strconv.Itoa(cfg.Port)),
+		Handler:           debugLog(log, newServer(log, cfg, st)),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    64 << 10,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -74,7 +78,8 @@ func serve(stderr io.Writer) int {
 
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
-	log.Info("faux3 listening", "addr", srv.Addr, "version", version, "region", cfg.Region, "data_dir", cfg.DataDir)
+	log.Info("faux3 listening", "addr", srv.Addr, "version", version, "region", cfg.Region,
+		"data_dir", cfg.DataDir, "cors", cfg.CORSOrigins, "fsync", cfg.Fsync)
 
 	select {
 	case err := <-errc:
@@ -127,4 +132,21 @@ func healthcheck(stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// newServer builds the S3 API handler from the configuration.
+func newServer(log *slog.Logger, cfg config.Config, st store.Store) *s3api.Server {
+	return &s3api.Server{
+		Store: st,
+		Verifier: &sigv4.Verifier{
+			AccessKeyID:     cfg.AccessKeyID,
+			SecretAccessKey: cfg.SecretAccessKey,
+			Region:          cfg.Region,
+			ClockSkew:       cfg.ClockSkew,
+			Now:             time.Now,
+		},
+		Region:      cfg.Region,
+		CORSOrigins: cfg.CORSOrigins,
+		Log:         log,
+	}
 }

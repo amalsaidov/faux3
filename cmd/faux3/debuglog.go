@@ -1,11 +1,8 @@
 package main
 
 import (
-	"context"
-	"io"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -84,20 +81,4 @@ func redactQuery(q string) string {
 		}
 	}
 	return strings.Join(parts, "&")
-}
-
-// drainAndLog consumes the request body and logs its size and first 200
-// bytes, quoted, so aws-chunked framing is visible during the wire spike.
-func drainAndLog(ctx context.Context, log *slog.Logger, r *http.Request) {
-	if r.Body == nil || !log.Enabled(ctx, slog.LevelDebug) {
-		return
-	}
-	head := make([]byte, 200)
-	n, _ := io.ReadFull(r.Body, head)
-	rest, _ := io.Copy(io.Discard, r.Body)
-	if n == 0 && rest == 0 {
-		return
-	}
-	log.Debug("body", "method", r.Method, "path", r.URL.EscapedPath(),
-		"bytes", int64(n)+rest, "head", strconv.Quote(string(head[:n])))
 }
