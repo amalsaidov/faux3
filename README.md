@@ -1,4 +1,8 @@
+<p align="center"><img src="docs/hero.gif" width="480" alt="Faux3: a lilac crayon scribble draws in, then a line-drawn sailboat settles on the waves and gently rocks"></p>
+
 # Faux3
+
+S3 without the cloud.
 
 One container. One volume. One S3 endpoint. No AWS required.
 
