@@ -8,7 +8,7 @@ services:
     # After v0.1.0 is published, use the image instead:
     # image: ghcr.io/change-fabric/faux3:0.1.0
     build: ../..
-    ports: ["${FAUX3_HOST_PORT:-9000}:9000"]  # override if 9000 is taken
+    ports: ["127.0.0.1:${FAUX3_HOST_PORT:-9000}:9000"]  # override if 9000 is taken
     environment:
       # Browser uploads with presigned URLs need the page's origin here.
       # Unset means no CORS headers at all.

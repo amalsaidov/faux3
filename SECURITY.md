@@ -9,7 +9,7 @@ Faux3 is a local development tool. Never expose it to untrusted networks or the 
 - There is one static credential and no authorization model beyond it.
 - Data is stored unencrypted in the data volume.
 
-Bind the port to localhost when other machines can reach yours: `-p 127.0.0.1:9000:9000`.
+The documented examples bind the port to localhost (`-p 127.0.0.1:9000:9000`); keep it that way, because the default credentials are public. Compose services reach Faux3 by service name (`http://faux3:9000`) without a published port.
 
 ## Reporting a vulnerability
 

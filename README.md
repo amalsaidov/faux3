@@ -13,7 +13,7 @@ Faux3 is an MIT-licensed, single-container, S3-compatible object store for local
 ## Quick start (under 2 minutes)
 
 ```sh
-docker run -d --name faux3 -p 9000:9000 -v faux3-data:/data ghcr.io/change-fabric/faux3:0.1.0
+docker run -d --name faux3 -p 127.0.0.1:9000:9000 -v faux3-data:/data ghcr.io/change-fabric/faux3:0.1.0
 ```
 
 Until v0.1.0 is published to GHCR, build the image from a clone instead:
@@ -21,7 +21,7 @@ Until v0.1.0 is published to GHCR, build the image from a clone instead:
 ```sh
 git clone https://github.com/change-fabric/faux3 && cd faux3
 docker build -t faux3 .
-docker run -d --name faux3 -p 9000:9000 -v faux3-data:/data faux3
+docker run -d --name faux3 -p 127.0.0.1:9000:9000 -v faux3-data:/data faux3
 ```
 
 The endpoint is `http://localhost:9000`, region `us-east-1`, access key `faux3`, secret key `faux3`. Health check: `curl http://localhost:9000/-/healthz` prints `ok`.
@@ -74,7 +74,7 @@ await s3.send(new PutObjectCommand({ Bucket: "demo", Key: "hello.txt", Body: "he
 services:
   faux3:
     image: ghcr.io/change-fabric/faux3:0.1.0
-    ports: ["9000:9000"]
+    ports: ["127.0.0.1:9000:9000"]
     volumes: ["faux3-data:/data"]
     environment:
       FAUX3_CORS_ORIGINS: http://localhost:5173   # only for browser uploads
