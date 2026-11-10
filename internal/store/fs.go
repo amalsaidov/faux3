@@ -40,6 +40,7 @@ type Options struct {
 // FS is the filesystem Store. Layout under Dir:
 //
 //	.faux3/format                         "1\n"
+//	.faux3/lock                           exclusive flock, one process per dir
 //	.faux3/tmp/                           staging, same filesystem
 //	buckets/<b>/.bucket.json
 //	buckets/<b>/objects/<h[0:2]>/<h>/{data,meta.json}   h = hex(sha256(key))
@@ -50,6 +51,7 @@ type FS struct {
 	maxSize int64
 	log     *slog.Logger
 	keys    stripes
+	lock    *os.File // exclusive flock on .faux3/lock
 
 	mu      sync.Mutex
 	buckets map[string]*bucket
@@ -97,9 +99,11 @@ func Open(opts Options) (*FS, error) {
 		buckets: map[string]*bucket{},
 	}
 	if err := s.initLayout(); err != nil {
+		_ = s.Close()
 		return nil, err
 	}
 	if err := s.recover(); err != nil {
+		_ = s.Close()
 		return nil, err
 	}
 	return s, nil
@@ -116,6 +120,12 @@ func (s *FS) initLayout() error {
 		return wrapWritable(s.dir, err)
 	}
 	_ = os.Remove(probe)
+
+	lock, err := lockDataDir(s.dir)
+	if err != nil {
+		return err
+	}
+	s.lock = lock
 
 	fpath := filepath.Join(s.dir, ".faux3", "format")
 	b, err := os.ReadFile(fpath)

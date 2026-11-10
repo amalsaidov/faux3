@@ -18,7 +18,7 @@ Store each object at `buckets/<bucket>/objects/<sha256(key)[0:2]>/<sha256(key)>/
 - Any byte sequence that is valid UTF-8 and up to 1024 bytes works as a key, on any host filesystem.
 - `/data` is not human-browsable; docs/storage-format.md says not to edit it.
 - Startup time grows with key count. A persistent index is on the roadmap only if this becomes a problem.
-- Only one process may use a data directory.
+- Only one process may use a data directory. faux3 enforces this with an exclusive `flock` on `.faux3/lock` taken at startup; a second process on the same directory exits 1 with a clear message.
 
 ## Alternatives
 

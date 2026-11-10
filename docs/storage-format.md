@@ -6,6 +6,7 @@ Do not edit `/data` by hand. The layout is an implementation detail, versioned b
 
 ```
 /data/.faux3/format                                   "1\n"
+/data/.faux3/lock                                     exclusive flock, one process per data dir
 /data/.faux3/tmp/                                     staging, same filesystem
 /data/buckets/<bucket>/.bucket.json                   {"name": ..., "created": RFC3339Nano}
 /data/buckets/<bucket>/objects/<h[0:2]>/<h>/data      object bytes
@@ -48,4 +49,6 @@ Each PutObject streams into a fresh directory under `.faux3/tmp/`, verifies size
 3. A `meta.json` whose key hashes to a different directory is logged as a warning and skipped.
 4. The in-memory index is rebuilt from every `meta.json`. Startup time grows with the number of keys.
 
-Run only one faux3 process against a data directory.
+## Single instance
+
+At startup faux3 takes an exclusive, non-blocking `flock` on `.faux3/lock`. A second faux3 process pointed at the same data directory fails to get the lock, prints that the directory is in use by another faux3 process, and exits with status 1. The kernel releases the lock when the process exits, including on SIGKILL, so a crash never leaves a stale lock. The lock file itself is empty and safe to leave in place.

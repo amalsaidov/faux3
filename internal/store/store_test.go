@@ -18,6 +18,7 @@ func openStore(t *testing.T, dir string) *FS {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = s.Close() })
 	return s
 }
 
@@ -74,6 +75,9 @@ func TestRoundTripAndReopen(t *testing.T) {
 	}
 	if got := get(t, s, "dir/file.txt"); got != "hello" {
 		t.Fatalf("got %q", got)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
 	}
 	s2 := openStore(t, dir)
 	h, err := s2.HeadObject("bkt", "dir/file.txt")
@@ -258,6 +262,9 @@ func TestRecoverySweep(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
 	s2 := openStore(t, dir)
 	if n := tmpEntries(t, dir); n != 0 {
 		t.Fatalf("tmp has %d entries", n)
@@ -275,7 +282,9 @@ func TestRecoverySweep(t *testing.T) {
 
 func TestFormatMismatch(t *testing.T) {
 	dir := t.TempDir()
-	openStore(t, dir)
+	if err := openStore(t, dir).Close(); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(dir, ".faux3", "format"), []byte("2\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -359,4 +368,21 @@ func TestConcurrentPutGet(t *testing.T) {
 	for err := range errc {
 		t.Fatal(err)
 	}
+}
+
+func TestSingleInstanceLock(t *testing.T) {
+	dir := t.TempDir()
+	s := openStore(t, dir)
+	_, err := Open(Options{Dir: dir})
+	if !errors.Is(err, ErrDataDirLocked) || !strings.Contains(err.Error(), "another faux3 process") {
+		t.Fatalf("second open err = %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s2, err := Open(Options{Dir: dir})
+	if err != nil {
+		t.Fatalf("open after close: %v", err)
+	}
+	_ = s2.Close()
 }
