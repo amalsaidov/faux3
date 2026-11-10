@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 432" width="720" height="432" role="img" aria-labelledby="t d" data-diagram-type="architecture">
+  <title id="t">Faux3 architecture</title>
+  <desc id="d">Host clients (an app, the AWS CLI, the JS SDK, and a browser) call port 9000 on the faux3 container. Inside, one Go binary passes each request through the HTTP server, the S3 API router, SigV4 verification, and the filesystem store, which persists to the /data Docker volume. It runs offline with a single static credential.</desc>
+  <style>
+    svg { --bg: #F5F5F5; --surface: #FFFFFF; --ink: #2D3142; --muted: #4F5D75; --soft: #5A6580; --line: #4F5D75; --rule: #D9DADD; --accent: #B5401C; --accent-tint: #F2E9E6; --link: #2E5AA8; }
+    @media (prefers-color-scheme: dark) {
+      svg { --bg: #2D3142; --surface: #2D3142; --ink: #F5F5F5; --muted: #BFC0C0; --soft: #A3ACC0; --line: #A3ACC0; --rule: #45495A; --accent: #F08A59; --accent-tint: #3D3844; --link: #7FA9E6; }
+    }
+    .bg { fill: var(--bg); }
+    .node rect { fill: var(--surface); stroke: var(--ink); stroke-width: 1; }
+    .node.store rect { fill: var(--bg); stroke: var(--muted); }
+    .node.ext rect { fill: var(--bg); stroke: var(--rule); stroke-dasharray: 4 3; }
+    .node.lead rect { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.5; }
+    .label { fill: var(--ink); font-weight: 600; font-family: Geist, Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Sans CJK SC", "Noto Sans CJK JP", sans-serif; }
+    .sub { fill: var(--muted); font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans Mono CJK SC", monospace; }
+    .edge { fill: none; stroke: var(--line); stroke-width: 1.2; }
+    .edge.fail { stroke: var(--accent); }
+    .edge-label { fill: var(--soft); font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans Mono CJK SC", monospace; }
+    .mask { fill: var(--bg); }
+    .group rect { fill: none; stroke: var(--rule); stroke-dasharray: 4 4; }
+    .group rect.mask { fill: var(--bg); stroke: none; }
+    .note { fill: var(--muted); font-family: Geist, Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Sans CJK SC", "Noto Sans CJK JP", sans-serif; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#4F5D75"/></marker>
+    <marker id="arrow-accent" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#B5401C"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="720" height="432" fill="#F5F5F5"/>
+  <path class="edge" data-from="app" data-to="http" d="M192 96 H296" marker-end="url(#arrow)"/>
+  <path class="edge" data-from="cli" data-to="http" d="M192 168 H232 V96 H296" marker-end="url(#arrow)"/>
+  <path class="edge" data-from="sdk" data-to="http" d="M192 240 H232 V96 H296" marker-end="url(#arrow)"/>
+  <path class="edge" data-from="browser" data-to="http" d="M192 312 H232 V96 H296" marker-end="url(#arrow)"/>
+  <path class="edge" data-from="http" data-to="router" d="M396 120 V144" marker-end="url(#arrow)"/>
+  <path class="edge" data-from="router" data-to="sigv4" d="M396 192 V216" marker-end="url(#arrow)"/>
+  <path class="edge" data-from="sigv4" data-to="store" d="M396 264 V288" marker-end="url(#arrow)"/>
+  <path class="edge" data-from="store" data-to="volume" d="M496 312 H560" marker-end="url(#arrow)"/>
+  <g class="group" data-id="container">
+    <rect x="264" y="40" width="264" height="328" rx="8"/>
+    <rect class="mask" x="280" y="32" width="184" height="16" rx="2"/>
+    <text class="edge-label" x="288" y="44" font-size="11" letter-spacing="0.06em">FAUX3 CONTAINER :9000</text>
+  </g>
+  <g class="node " data-id="app"><rect x="48" y="72" width="144" height="48" rx="6"/><text class="label" x="120" y="100.9" font-size="14" text-anchor="middle">App</text></g>
+  <g class="node " data-id="cli"><rect x="48" y="144" width="144" height="48" rx="6"/><text class="label" x="120" y="172.9" font-size="14" text-anchor="middle">AWS CLI</text></g>
+  <g class="node " data-id="sdk"><rect x="48" y="216" width="144" height="48" rx="6"/><text class="label" x="120" y="244.9" font-size="14" text-anchor="middle">JS SDK</text></g>
+  <g class="node " data-id="browser"><rect x="48" y="288" width="144" height="48" rx="6"/><text class="label" x="120" y="316.9" font-size="14" text-anchor="middle">Browser</text></g>
+  <g class="node lead" data-id="http"><rect x="296" y="72" width="200" height="48" rx="6"/><text class="label" x="396" y="100.9" font-size="14" text-anchor="middle">HTTP server</text></g>
+  <g class="node " data-id="router"><rect x="296" y="144" width="200" height="48" rx="6"/><text class="label" x="396" y="172.9" font-size="14" text-anchor="middle">S3 API router</text></g>
+  <g class="node " data-id="sigv4"><rect x="296" y="216" width="200" height="48" rx="6"/><text class="label" x="396" y="244.9" font-size="14" text-anchor="middle">SigV4 verify</text></g>
+  <g class="node " data-id="store"><rect x="296" y="288" width="200" height="48" rx="6"/><text class="label" x="396" y="316.9" font-size="14" text-anchor="middle">Filesystem store</text></g>
+  <g class="node store" data-id="volume"><rect x="560" y="288" width="136" height="48" rx="6"/><text class="label" x="628" y="316.9" font-size="14" text-anchor="middle">/data volume</text></g>
+  <text class="note" x="48" y="404" font-size="12">Single Go binary. Runs offline. One static credential (faux3 / faux3), path-style only.</text>
+</svg>
