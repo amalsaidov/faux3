@@ -1,0 +1,9 @@
+services:
+  faux3:
+    build: .
+    ports: ["9000:9000"]
+    volumes: ["faux3-data:/data"]
+    environment:
+      FAUX3_LOG_LEVEL: debug
+volumes:
+  faux3-data:

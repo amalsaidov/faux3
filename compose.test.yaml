@@ -1,0 +1,14 @@
+name: faux3-test
+services:
+  faux3:
+    build: .
+    environment:
+      FAUX3_LOG_LEVEL: debug
+      FAUX3_CORS_ORIGINS: http://example.test
+    volumes: ["faux3-test-data:/data"]
+    healthcheck:
+      test: ["CMD", "/faux3", "healthcheck"]
+      interval: 2s
+      retries: 30
+volumes:
+  faux3-test-data:
