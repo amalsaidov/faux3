@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func openStore(t *testing.T, dir string) *FS {
@@ -385,4 +386,67 @@ func TestSingleInstanceLock(t *testing.T) {
 		t.Fatalf("open after close: %v", err)
 	}
 	_ = s2.Close()
+}
+
+// gateReader signals on first Read, then blocks until released.
+type gateReader struct {
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+	body    io.Reader
+}
+
+func (g *gateReader) Read(p []byte) (int, error) {
+	g.once.Do(func() { close(g.started) })
+	<-g.release
+	return g.body.Read(p)
+}
+
+// TestDeleteBucketDuringSlowPut checks that a slow upload does not hold
+// the bucket lock: DeleteBucket and HeadBucket complete while the body is
+// still streaming, and the upload then fails cleanly.
+func TestDeleteBucketDuringSlowPut(t *testing.T) {
+	s, dir := newBucket(t)
+	g := &gateReader{started: make(chan struct{}), release: make(chan struct{}), body: strings.NewReader("slow")}
+	putErr := make(chan error, 1)
+	go func() {
+		_, err := s.PutObject(context.Background(), "bkt", "k", PutInput{Body: g, ContentLength: 4})
+		putErr <- err
+	}()
+	<-g.started
+
+	done := make(chan error, 2)
+	go func() { done <- s.DeleteBucket("bkt") }()
+	go func() {
+		_, err := s.HeadBucket("bkt")
+		if err != nil && !errors.Is(err, ErrNoSuchBucket) {
+			done <- err
+			return
+		}
+		done <- nil
+	}()
+	for i := 0; i < 2; i++ {
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatal(err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("DeleteBucket or HeadBucket blocked behind a slow upload")
+		}
+	}
+	if _, err := s.HeadBucket("bkt"); !errors.Is(err, ErrNoSuchBucket) {
+		t.Fatalf("head after delete = %v", err)
+	}
+
+	close(g.release)
+	if err := <-putErr; !errors.Is(err, ErrNoSuchBucket) {
+		t.Fatalf("put after bucket delete = %v", err)
+	}
+	if n := tmpEntries(t, dir); n != 0 {
+		t.Fatalf("tmp has %d entries", n)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "buckets", "bkt")); !os.IsNotExist(err) {
+		t.Fatalf("bucket dir resurrected: %v", err)
+	}
 }

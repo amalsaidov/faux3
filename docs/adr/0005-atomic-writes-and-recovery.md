@@ -9,7 +9,7 @@ Concurrent readers must never see a torn object, a failed upload must leave the 
 
 ## Decision
 
-PutObject streams the body into a new directory under `.faux3/tmp/` (same filesystem), hashing as it goes, with no full-body buffering. After size and checksum checks pass, it fsyncs the data (when `FAUX3_FSYNC=true`, the default), writes and fsyncs `meta.json`, then under a striped per-key write lock renames the old key directory aside, renames the new one into place, fsyncs the parent, and updates the index. The old directory is removed after the lock is released. Readers open the data file under a read lock and stream from the open descriptor, which survives a later rename.
+PutObject streams the body into a new directory under `.faux3/tmp/` (same filesystem), hashing as it goes, with no full-body buffering and without holding the bucket lock, so a slow upload never blocks DeleteBucket or other requests to the bucket. After size and checksum checks pass, it fsyncs the data (when `FAUX3_FSYNC=true`, the default), writes and fsyncs `meta.json`, then, holding the bucket read lock (so DeleteBucket cannot run mid-swap) and a striped per-key write lock, re-checks that the bucket still exists (discarding the stage with NoSuchBucket if not), renames the old key directory aside, renames the new one into place, fsyncs the parent, and updates the index. The old directory is removed after the lock is released. Readers open the data file under a read lock and stream from the open descriptor, which survives a later rename.
 
 At startup, faux3 empties `.faux3/tmp/`, removes key directories missing `meta.json`, and skips (with a warning) any `meta.json` whose key hashes elsewhere.
 

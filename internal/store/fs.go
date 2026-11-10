@@ -340,8 +340,10 @@ func userMetaSize(m map[string]string) int {
 	return n
 }
 
-// PutObject streams the body into a staging dir, verifies it, and swaps
-// it into place atomically under the key's write lock.
+// PutObject streams the body into a staging dir without holding the
+// bucket lock, verifies it, then swaps it into place under the bucket read
+// lock and the key's write lock. A DeleteBucket that lands mid-upload wins:
+// the stage is discarded and the put fails with ErrNoSuchBucket.
 func (s *FS) PutObject(ctx context.Context, bucketName, key string, in PutInput) (Meta, error) {
 	if err := ValidateKey(key); err != nil {
 		return Meta{}, err
@@ -356,22 +358,18 @@ func (s *FS) PutObject(ctx context.Context, bucketName, key string, in PutInput)
 	if in.ContentLength > s.maxSize {
 		return Meta{}, ErrEntityTooLarge
 	}
-	b, err := s.rlockBucket(bucketName)
-	if err != nil {
+	// Fail fast on a missing bucket before reading the body.
+	if _, err := s.HeadBucket(bucketName); err != nil {
 		return Meta{}, err
 	}
-	defer b.mu.RUnlock()
 
 	stage := filepath.Join(s.tmp, randName("put-"))
 	if err := os.Mkdir(stage, 0o755); err != nil {
 		return Meta{}, err
 	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = os.RemoveAll(stage)
-		}
-	}()
+	// After a successful commit the stage path no longer exists, so this
+	// only removes an abandoned stage.
+	defer os.RemoveAll(stage)
 
 	size, etag, err := s.writeData(ctx, filepath.Join(stage, "data"), in.Body)
 	if err != nil {
@@ -406,19 +404,39 @@ func (s *FS) PutObject(ctx context.Context, bucketName, key string, in PutInput)
 		return Meta{}, err
 	}
 
-	dst := s.keyDir(bucketName, key)
-	kl := s.keys.lock(bucketName, key)
-	kl.Lock()
-	if _, exists := b.idx.get(key); exists && in.IfNoneMatch {
-		kl.Unlock()
-		return Meta{}, ErrPreconditionFailed
+	stored := *meta
+	old, err := s.commit(bucketName, stage, &stored, in.IfNoneMatch)
+	if old != "" {
+		_ = os.RemoveAll(old)
 	}
-	old := ""
+	if err != nil {
+		return Meta{}, err
+	}
+	return stored, nil
+}
+
+// commit swaps a finished stage into place. It holds the bucket read lock,
+// so DeleteBucket cannot move the bucket dir mid-swap, and re-checks that
+// the bucket still exists. It returns the displaced old dir, if any, for
+// the caller to remove after the locks are released.
+func (s *FS) commit(bucketName, stage string, m *Meta, ifNoneMatch bool) (old string, err error) {
+	b, err := s.rlockBucket(bucketName)
+	if err != nil {
+		return "", err
+	}
+	defer b.mu.RUnlock()
+	kl := s.keys.lock(bucketName, m.Key)
+	kl.Lock()
+	defer kl.Unlock()
+
+	if _, exists := b.idx.get(m.Key); exists && ifNoneMatch {
+		return "", ErrPreconditionFailed
+	}
+	dst := s.keyDir(bucketName, m.Key)
 	if _, err := os.Lstat(dst); err == nil {
 		old = filepath.Join(s.tmp, randName("old-"))
 		if err := os.Rename(dst, old); err != nil {
-			kl.Unlock()
-			return Meta{}, err
+			return "", err
 		}
 	}
 	err = os.MkdirAll(filepath.Dir(dst), 0o755)
@@ -429,21 +447,10 @@ func (s *FS) PutObject(ctx context.Context, bucketName, key string, in PutInput)
 		if old != "" {
 			_ = os.Rename(old, dst)
 		}
-		kl.Unlock()
-		return Meta{}, err
+		return "", err
 	}
-	committed = true
-	stored := *meta
-	b.idx.put(&stored)
-	syncErr := s.syncDir(filepath.Dir(dst))
-	kl.Unlock()
-	if old != "" {
-		_ = os.RemoveAll(old)
-	}
-	if syncErr != nil {
-		return Meta{}, syncErr
-	}
-	return stored, nil
+	b.idx.put(m)
+	return old, s.syncDir(filepath.Dir(dst))
 }
 
 type ctxReader struct {

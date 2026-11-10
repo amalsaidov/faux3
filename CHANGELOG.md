@@ -22,4 +22,5 @@ The format is based on Keep a Changelog, and this project uses Semantic Versioni
 - Real-client integration suite in Docker Compose (`scripts/integration.sh`): AWS SDK for JavaScript v3 and AWS CLI v2 tests, a restart and SIGKILL persistence test, and a 1 GiB upload under a 128 MiB memory limit.
 - User metadata response headers are sent lowercase (`x-amz-meta-color`), so the AWS CLI reports the key as written.
 - A second faux3 process on the same data dir now exits 1 with a clear message, enforced by an exclusive `flock` on `.faux3/lock`.
+- A DeleteBucket issued during a slow PutObject no longer stalls other requests to that bucket: uploads stage without the bucket lock and take it only for the final swap, failing with NoSuchBucket if the bucket was deleted meanwhile.
 - Unsigned aws-chunked uploads stream chunks of any size; the AWS CLI sends a whole file as one chunk. Only signed chunks keep the 16 MiB buffer cap.
