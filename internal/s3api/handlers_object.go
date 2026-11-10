@@ -129,7 +129,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request, req *request)
 	setIf(h, "Content-Language", meta.ContentLanguage)
 	setIf(h, "Expires", meta.Expires)
 	for k, v := range meta.UserMetadata {
-		h["X-Amz-Meta-"+k] = []string{v}
+		h.Set("X-Amz-Meta-"+k, v)
 	}
 	for q, hdr := range responseOverrides {
 		if req.query.Has(q) {

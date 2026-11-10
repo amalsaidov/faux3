@@ -60,4 +60,3 @@ func (s *Server) addCORSHeaders(w http.ResponseWriter, r *http.Request) {
 	h.Set("Access-Control-Expose-Headers", corsExposeHeaders)
 	h.Add("Vary", "Origin")
 }
-
