@@ -1,0 +1,5 @@
+[default]
+region = us-east-1
+s3 =
+  addressing_style = path
+  multipart_threshold = 64MB

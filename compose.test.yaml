@@ -10,5 +10,28 @@ services:
       test: ["CMD", "/faux3", "healthcheck"]
       interval: 2s
       retries: 30
+  node-tests:
+    image: node:22-alpine
+    working_dir: /work
+    volumes: ["./test/integration/node:/work", "faux3-node-modules:/work/node_modules"]
+    environment:
+      S3_ENDPOINT: http://faux3:9000
+      AWS_ACCESS_KEY_ID: faux3
+      AWS_SECRET_ACCESS_KEY: faux3
+      AWS_REGION: us-east-1
+    # Install from the lockfile first so any command (tests or the spike) has deps.
+    entrypoint: ["sh", "-c", "npm ci --no-audit --no-fund --loglevel=error && exec \"$$@\"", "--"]
+    command: ["node", "--test", "--test-concurrency=1"]
+    depends_on: { faux3: { condition: service_healthy } }
+  cli-tests:
+    build: ./test/integration/cli
+    environment:
+      AWS_ENDPOINT_URL: http://faux3:9000
+      AWS_ACCESS_KEY_ID: faux3
+      AWS_SECRET_ACCESS_KEY: faux3
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_CONFIG_FILE: /tests/aws-config
+    depends_on: { faux3: { condition: service_healthy } }
 volumes:
   faux3-test-data:
+  faux3-node-modules:
