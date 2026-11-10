@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	// MaxChunkSize caps one aws-chunked chunk so signed chunks can be
-	// buffered and verified with bounded memory.
+	// MaxChunkSize caps one signed aws-chunked chunk so it can be
+	// buffered and verified with bounded memory. Unsigned chunks stream
+	// and have no cap: the AWS CLI sends a whole file as one chunk.
 	MaxChunkSize = 16 << 20
 	maxLineLen   = 4096
 )
@@ -34,7 +35,7 @@ func badChunkSig(what string) error {
 
 // ChunkedReader decodes an aws-chunked body in any of the three supported
 // streaming modes. Signed chunks are buffered (up to MaxChunkSize) and
-// verified before any of their bytes are returned. Errors are
+// verified before any of their bytes are returned; unsigned chunks stream. Errors are
 // *s3err.Error values; a successful read ends in io.EOF only after the
 // final chunk, trailers, and decoded length all check out.
 type ChunkedReader struct {
@@ -183,8 +184,8 @@ func (c *ChunkedReader) nextChunk() error {
 	if err != nil || size < 0 {
 		return badFrame("invalid chunk size " + quote(sizeStr))
 	}
-	if size > MaxChunkSize {
-		return s3err.New("InvalidArgument", "aws-chunked chunk size exceeds 16 MiB")
+	if c.signed && size > MaxChunkSize {
+		return s3err.New("InvalidArgument", "signed aws-chunked chunk size exceeds 16 MiB")
 	}
 	if c.total+size > c.decodedLen {
 		return incomplete("the decoded body is longer than x-amz-decoded-content-length")

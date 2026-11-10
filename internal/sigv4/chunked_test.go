@@ -180,6 +180,21 @@ func TestChunkedEmptyBody(t *testing.T) {
 	}
 }
 
+// Regression: the AWS CLI sends a 20 MB file as a single unsigned chunk.
+// Unsigned chunks stream, so the signed-chunk buffer cap must not apply.
+func TestUnsignedChunkLargerThanSignedCap(t *testing.T) {
+	data := bytes.Repeat([]byte{0xa5}, MaxChunkSize+1)
+	got, _, err := decode(streamReq(t, chunkModes[1], data, len(data), nil, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, data) {
+		t.Fatalf("decoded %d bytes want %d", len(got), len(data))
+	}
+	_, _, err = decode(streamReq(t, chunkModes[0], data, len(data), nil, false))
+	wantCode(t, err, "InvalidArgument")
+}
+
 // The exact unsigned-trailer framing captured from the JS SDK on the wire.
 func TestChunkedWireCapture(t *testing.T) {
 	body := "19\r\nhello faux3 wire capture\n\r\n0\r\nx-amz-checksum-crc32:X9wasw==\r\n\r\n"
@@ -246,7 +261,7 @@ func TestChunkedNegative(t *testing.T) {
 	cases = append(cases,
 		neg{"bad chunk size", chunkModes[1], func(b []byte) []byte { return append([]byte("zz"), b[bytes.IndexByte(b, '\r'):]...) }, nil, "InvalidArgument"},
 		neg{"long header line", chunkModes[1], func(b []byte) []byte { return append(bytes.Repeat([]byte("0"), 5000), b...) }, nil, "InvalidArgument"},
-		neg{"oversize chunk", chunkModes[1], func([]byte) []byte { return []byte("1000001\r\n") }, func(r *http.Request) {
+		neg{"oversize signed chunk", chunkModes[0], func([]byte) []byte { return []byte("1000001;chunk-signature=" + strings.Repeat("0", 64) + "\r\n") }, func(r *http.Request) {
 			r.Header.Set("X-Amz-Decoded-Content-Length", "99999999")
 		}, "InvalidArgument"},
 		neg{"missing chunk signature", chunkModes[0], func(b []byte) []byte {
