@@ -142,13 +142,13 @@ func ValidBucketName(name string) bool {
 	if len(name) < 3 || len(name) > 63 {
 		return false
 	}
+	isAlnum := func(c byte) bool { return c >= 'a' && c <= 'z' || c >= '0' && c <= '9' }
 	for i := 0; i < len(name); i++ {
 		c := name[i]
-		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '.' || c == '-') {
+		if !(isAlnum(c) || c == '.' || c == '-') {
 			return false
 		}
 	}
-	isAlnum := func(c byte) bool { return c >= 'a' && c <= 'z' || c >= '0' && c <= '9' }
 	if !isAlnum(name[0]) || !isAlnum(name[len(name)-1]) {
 		return false
 	}
@@ -226,7 +226,7 @@ func (s *FS) writeFileAtomic(path string, data []byte) error {
 	return s.syncDir(filepath.Dir(path))
 }
 
-// lookup returns the bucket with its read lock held, or ErrNoSuchBucket.
+// rlockBucket returns the bucket with its read lock held, or ErrNoSuchBucket.
 func (s *FS) rlockBucket(name string) (*bucket, error) {
 	s.mu.Lock()
 	b := s.buckets[name]
